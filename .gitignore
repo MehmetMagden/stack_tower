@@ -1,0 +1,112 @@
+# Miscellaneous
+*.class
+*.log
+*.pyc
+*.swp
+.DS_Store
+.atom/
+.build/
+.buildlog/
+.history
+.svn/
+.swiftpm/
+migrate_working_dir/
+
+# Android related
+*.apk
+.jks
+key.properties
+
+# IntelliJ related
+*.iml
+*.ipr
+*.iws
+.idea/
+
+# The .vscode folder contains launch configuration and tasks you configure in
+# VS Code which you may wish to be included in version control, so this line
+# is commented out by default.
+#.vscode/
+
+# Flutter/Dart/Pub related
+**/doc/api/
+**/ios/Flutter/.last_build_id
+.dart_tool/
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+/build/
+/coverage/
+
+# Symbolication related
+app.*.symbols
+
+# Obfuscation related
+app.*.map.json
+
+# Android Studio will place build artifacts here
+/android/app/debug
+/android/app/profile
+/android/app/release
+
+# Wind surf
+# Flutter/Dart specific
+**/build/
+**/ios/.symlinks/
+**/ios/Flutter/.last_build_id
+**/ios/Flutter/App.framework
+**/ios/Flutter/Flutter.framework
+**/ios/Flutter/Flutter.podspec
+**/ios/Flutter/flutter_assets/
+**/ios/ServiceDefinitions.json
+**/macos/Flutter/ephemeral/
+**/windows/flutter/ephemeral/
+**/linux/flutter/ephemeral/
+**/linux/flutter/bin/cache/
+**/ios/Runner/Assets.xcassets/AppIcon.appiconset/Contents.json
+**/ios/Runner/Assets.xcassets/LaunchImage.imageset/Contents.json
+**/ios/Runner/Assets.xcassets/AppIcon.appiconset/*.png
+**/ios/Runner/Assets.xcassets/LaunchImage.imageset/*.png
+**/ios/Runner/Assets.xcassets/*.xcassets
+**/ios/Runner/Assets.xcassets/AppIcon.appiconset/Contents.json
+**/ios/Runner/Assets.xcassets/LaunchImage.imageset/Contents.json
+**/ios/Runner/Assets.xcassets/AppIcon.appiconset/*.png
+**/ios/Runner/Assets.xcassets/LaunchImage.imageset/*.png
+**/ios/Runner/Assets.xcassets/*.xcassets
+**/ios/Runner/Assets.xcassets/AppIcon.appiconset/Contents.json
+**/ios/Runner/Assets.xcassets/LaunchImage.imageset/Contents.json
+**/ios/Runner/Assets.xcassets/AppIcon.appiconset/*.png
+**/ios/Runner/Assets.xcassets/LaunchImage.imageset/*.png
+**/ios/Runner/Assets.xcassets/*.xcassets
+**/ios/Runner.xcodeproj/project.pbxproj
+**/ios/Runner.xcodeproj/xcshareddata
+**/ios/Runner.xcodeproj/xcdatasource
+**/ios/Runner.xcodeproj/xcuserdata/
+**/ios/Runner.xcodeproj/xcuserdata/xcschemes/
+**/ios/Runner.xcodeproj/xcuserdata/xcschemes/xcschememanagement/
+**/ios/Runner.xcodeproj/xcuserdata/xcschememanagement/Identity/
+**/ios/Runner.xcodeproj/xcuserdata/xcschememanagement/Identity/LocalSettings.plist
+**/ios/Runner.xcodeproj/xcuserdata/xcschememanagement/Identity/LocalSettings.lock
+**/ios/Runner.xcodeproj/xcuserdata/xcschememanagement/Identity/LocalSettings.uncompressed.zip
+**/ios/Runner.xcodeproj/xcuserdata/xcschememanagement/Identity/LocalSettings.uncompressed.zip.lock
+**/ios/Runner.xcodeproj/xcuserdata/xcschememanagement/Identity/LocalSettings.uncompressed.zip.uncompressed.zip
+**/ios/Runner.xcodeproj/xcuserdata/xcschememanagement/Identity/LocalSettings.uncompressed.zip.uncompressed.zip.lock
+**/ios/Runner.xcodeproj/project.pbxproj
+**/ios/Runner.xcodeproj/xcshareddata
+**/ios/Runner.xcodeproj/xcdatasource
+**/ios/Runner.xcodeproj/xcuserdata/
+**/ios/Runner.xcodeproj/xcuserdata/xcschemes/
+**/ios/Runner.xcodeproj/xcuserdata/xcschememanagement/
+**/ios/Runner.xcodeproj/xcuserdata/xcschememanagement/xcschememanagement.lock
+**/ios/Runner.xcodeproj/xcuserdata/xcschememanagement/xcschememanagement.uncompressed.zip
+**/ios/Runner.xcodeproj/xcuserdata/xcschememanagement/xcschememanagement.uncompressed.zip.lock
+**/ios/Runner.xcodeproj/xcuserdata/xcschememanagement/xcschememanagement.uncompressed.zip.uncompressed.zip
+**/ios/Runner.xcodeproj/xcuserdata/xcschememanagement/xcschememanagement.uncompressed.zip.uncompressed.zip.lock
+**/ios/Runner.xcodeproj/project.pbxproj
+**/ios/Runner.xcodeproj/xcshareddata
+**/ios/Runner.xcodeproj/xcdatasource
+**/ios/Runner.xcodeproj/xcuserdata/
+**/ios/Runner.xcodeproj/xcuserdata/xcschemes/
+**/ios/Runner.xcodeproj/xcuserdata/xcschememanagement/
+**/ios/Runner.xcodeproj/xcuserdata/xcschememanagement/xcschememanagement.lock
+**/ios/Runner.xcodeproj/xcuserdata/x
