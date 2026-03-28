@@ -14,7 +14,7 @@ migrate_working_dir/
 
 # Android related
 *.apk
-.jks
+*.jks
 key.properties
 
 # IntelliJ related
