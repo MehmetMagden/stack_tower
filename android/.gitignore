@@ -1,3 +1,15 @@
+# Flutter/Dart
+# -----------------------
+.dart_tool/
+.flutter-plugins
+.flutter-plugins-dependencies
+.packages
+.pub-cache/
+.pub/
+build/
+
+# Android Özel
+# -----------------------
 gradle-wrapper.jar
 /.gradle
 /captures/
@@ -6,9 +18,24 @@ gradle-wrapper.jar
 /local.properties
 GeneratedPluginRegistrant.java
 .cxx/
+*.iml
+.idea/
 
-# Remember to never publicly share your keystore.
-# See https://flutter.dev/to/reference-keystore
+# ⚠️ GÜVENLİK (Kritik Alanlar)
+# -----------------------
+# Anahtarlar ve Sertifikalar
 key.properties
 **/*.keystore
 **/*.jks
+**/*.p12
+**/*.pem
+
+# Google Hizmetleri (API Anahtarları İçerir)
+# Eğer bu dosyaları depona atarsan herkes API anahtarlarını görebilir!
+android/app/google-services.json
+ios/Runner/GoogleService-Info.plist
+
+# MacOS/Windows/Linux Dağıtımları
+# -----------------------
+.DS_Store
+.target/
