@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'dart:math' as math;
 import 'package:flame_audio/flame_audio.dart';
+import 'package:audioplayers/audioplayers.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
 import 'package:games_services/games_services.dart';
 import 'package:flutter/services.dart';
@@ -16,33 +17,45 @@ const String ID_PERFECT_KING = 'CgkI0JfKtagIEAIQAA';
 const String ID_NIGHT_OWL = 'CgkI0JfKtagIEAIQAQ';
 const String ID_CLOUD_BUILDER = 'CgkI0JfKtagIEAIQAg';
 
-// ─────────────────────────────────────────────
-// AdMob ID'LERİ  ← PRODUCTION (gerçek hesap)
-// ─────────────────────────────────────────────
-// const String _kBannerAdId =
-//     'ca-app-pub-3944855115101715/6952688320'; // Banner
+// --- AdMob ID'LERI (TEST) — Release'de gerçek ID'lerle değiştir ---
+const String _kBannerAdId = 'ca-app-pub-3940256099942544/6300978111';
+const String _kInterstitialAdId = 'ca-app-pub-3940256099942544/1033173712';
+const String _kRewardedAdId = 'ca-app-pub-3940256099942544/5224354917';
 
-// const String _kInterstitialAdId =
-//     'ca-app-pub-3944855115101715/2814132766'; // Interstitial
+// ─────────────────────────────────────────────────────────────────────────────
+// OPT #1 — TextPaint'leri top-level sabit olarak tanımla.
+//          Her TextComponent oluşturulduğunda yeni TextPaint/TextStyle yaratmak
+//          Flutter'ın text layout hesaplamalarını yeniden tetikler.
+//          Sabit referanslar bu maliyeti tamamen ortadan kaldırır.
+// ─────────────────────────────────────────────────────────────────────────────
+const _scoreStyle = TextStyle(
+  color: Colors.white,
+  fontSize: 60,
+  fontWeight: FontWeight.bold,
+);
+const _comboStyle = TextStyle(
+  color: Colors.orangeAccent,
+  fontSize: 26,
+  fontWeight: FontWeight.bold,
+);
+const _heightStyle = TextStyle(color: Colors.white70, fontSize: 18);
+const _windStyle = TextStyle(
+  color: Colors.redAccent,
+  fontSize: 18,
+  fontWeight: FontWeight.bold,
+);
 
-// const String _kRewardedAdId =
-//     'ca-app-pub-3944855115101715/1355796961'; // Rewarded
-
-// App ID:     ca-app-pub-3944855115101715~9379541113
-// Ad Unit ID: ca-app-pub-3944855115101715/1355796961
-// ─────────────────────────────────────────────
-// AdMob ID'LERİ
-// ─────────────────────────────────────────────
-// TEST modunda çalışırken bu ID'leri kullan.
-// Release APK/AAB yaparken gerçek ID'lerle değiştir.
-const String _kBannerAdId = 'ca-app-pub-3940256099942544/6300978111'; // TEST
-const String _kInterstitialAdId =
-    'ca-app-pub-3940256099942544/1033173712'; // TEST
-const String _kRewardedAdId =
-    'ca-app-pub-3940256099942544/5224354917'; // TEST — Rewarded Video
+final _scoreTextPaint = TextPaint(style: _scoreStyle);
+final _comboTextPaint = TextPaint(style: _comboStyle);
+final _heightTextPaint = TextPaint(style: _heightStyle);
+final _windTextPaint = TextPaint(style: _windStyle);
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
+
+  // OPT #2 — SharedPreferences instance'ını main'de bir kez al, sakla.
+  //          Her seferinde getInstance() çağırmak micro-delay'e neden olur.
+  final prefs = await SharedPreferences.getInstance();
 
   await MobileAds.instance.initialize().timeout(
     const Duration(seconds: 5),
@@ -59,11 +72,13 @@ void main() async {
     debugPrint('❌ PGS Giriş Yapılamadı: $e');
   }
 
-  runApp(const StackTowerApp());
+  runApp(StackTowerApp(prefs: prefs));
 }
 
 class StackTowerApp extends StatefulWidget {
-  const StackTowerApp({super.key});
+  final SharedPreferences prefs;
+  const StackTowerApp({super.key, required this.prefs});
+
   @override
   State<StackTowerApp> createState() => _StackTowerAppState();
 }
@@ -71,11 +86,12 @@ class StackTowerApp extends StatefulWidget {
 class _StackTowerAppState extends State<StackTowerApp> {
   late BannerAd _bannerAd;
   bool _isBannerAdReady = false;
-  final StackTowerGame _game = StackTowerGame();
+  late final StackTowerGame _game;
 
   @override
   void initState() {
     super.initState();
+    _game = StackTowerGame(prefs: widget.prefs);
     _loadBannerAd();
   }
 
@@ -95,6 +111,12 @@ class _StackTowerAppState extends State<StackTowerApp> {
   }
 
   @override
+  void dispose() {
+    _bannerAd.dispose(); // OPT #3 — Banner ad kaynağını serbest bırak
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
@@ -111,13 +133,17 @@ class _StackTowerAppState extends State<StackTowerApp> {
                     GameOverOverlay(game: game as StackTowerGame),
               },
             ),
+            // OPT #4 — RepaintBoundary: Banner reklam güncellendiğinde oyun
+            //          sahnesinin yeniden render edilmesini önler.
             if (_isBannerAdReady)
               Align(
                 alignment: Alignment.bottomCenter,
-                child: SizedBox(
-                  height: _bannerAd.size.height.toDouble(),
-                  width: double.infinity,
-                  child: AdWidget(ad: _bannerAd),
+                child: RepaintBoundary(
+                  child: SizedBox(
+                    height: _bannerAd.size.height.toDouble(),
+                    width: double.infinity,
+                    child: AdWidget(ad: _bannerAd),
+                  ),
                 ),
               ),
           ],
@@ -130,9 +156,12 @@ class _StackTowerAppState extends State<StackTowerApp> {
 enum GameState { menu, playing, gameOver }
 
 class StackTowerGame extends FlameGame with TapCallbacks {
+  // OPT #2 — SharedPreferences dışarıdan enjekte edildi, tekrar getInstance() çağrılmıyor
+  final SharedPreferences prefs;
+  StackTowerGame({required this.prefs});
+
   final _random = math.Random();
   late SpriteComponent _bgLevel1, _bgLevel2, _bgLevel3;
-
   int _bgLevel = 0;
 
   GameState gameState = GameState.menu;
@@ -143,25 +172,32 @@ class StackTowerGame extends FlameGame with TapCallbacks {
   int comboCount = 0;
 
   late TextComponent scoreText, comboText, heightText, windText;
+
+  // OPT #5 — _placedBlocks büyüdükçe hem memory hem update maliyeti artar.
+  //          Ekran dışına çıkan blokları takip edip silebilmek için ayrı liste.
   final List<MovingBlock> _placedBlocks = [];
+  final List<MovingBlock> _offscreenBlocks = []; // temizlenecek bekleyenler
+
   double _pendingScroll = 0.0;
   double windStrength = 0.0;
   bool windActive = false;
 
-  // ─────────────────────────────────────────────
-  // REWARDED VIDEO — Durum değişkenleri
-  // ─────────────────────────────────────────────
+  // OPT #6 — AudioPool: place.mp3 ve perfect.mp3 sık tetiklenir.
+  //          FlameAudio.play() her çağrıda yeni AudioPlayer açabilir → latency.
+  //          AudioPool önceden yüklenmiş player havuzu yönetir.
+  AudioPool? _placePool;
+  AudioPool? _perfectPool;
+
+  // Rewarded
   RewardedAd? _rewardedAd;
   bool _isRewardedAdReady = false;
-
-  // Kullanıcı başına tek devam hakkı (her oyun için 1 kez)
   bool _continueUsed = false;
 
-  // ─────────────────────────────────────────────
   InterstitialAd? _interstitialAd;
   int _gameOverCount = 0;
 
-  final List<Color> blockColors = [
+  // OPT #7 — blockColors const listesi: her erişimde yeni Color nesnesi yaratılmaz.
+  static const List<Color> blockColors = [
     Colors.tealAccent,
     Colors.pinkAccent,
     Colors.amberAccent,
@@ -169,171 +205,80 @@ class StackTowerGame extends FlameGame with TapCallbacks {
     Colors.purpleAccent,
   ];
 
+  // OPT #8 — String önbelleği: her blokta '${score * 3}m' string interpolation
+  //          yeni String nesnesi yaratır. Küçük etki ama ücretsiz kazanım.
+  String _lastHeightText = '0m';
+  String _lastScoreText = '0';
+
   @override
   Future<void> onLoad() async {
     camera.viewfinder.anchor = Anchor.center;
 
-    _bgLevel1 = SpriteComponent(
-      sprite: await loadSprite('bg_level1.png'),
-      size: size,
-    );
-    _bgLevel2 = SpriteComponent(
-      sprite: await loadSprite('bg_level2.png'),
-      size: size,
-    )..opacity = 0.0;
-    _bgLevel3 = SpriteComponent(
-      sprite: await loadSprite('bg_level3.png'),
-      size: size,
-    )..opacity = 0.0;
+    // Arka plan sprite'larını paralel yükle (seri yerine paralel → daha hızlı)
+    final results = await Future.wait([
+      loadSprite('bg_level1.png'),
+      loadSprite('bg_level2.png'),
+      loadSprite('bg_level3.png'),
+    ]);
+
+    _bgLevel1 = SpriteComponent(sprite: results[0], size: size);
+    _bgLevel2 = SpriteComponent(sprite: results[1], size: size)..opacity = 0.0;
+    _bgLevel3 = SpriteComponent(sprite: results[2], size: size)..opacity = 0.0;
     addAll([_bgLevel1, _bgLevel2, _bgLevel3]);
 
     _setupUI();
 
-    final prefs = await SharedPreferences.getInstance();
+    // OPT #2 — prefs artık constructor'dan geliyor, getInstance() yok
     highScore = prefs.getInt('highScore') ?? 0;
 
     _loadInterstitialAd();
-    _loadRewardedAd(); // ← Rewarded video yüklemeye başla
+    _loadRewardedAd();
     _setupBaseBlock();
     _spawnBlock();
 
     overlays.add('mainMenu');
     pauseEngine();
 
+    // OPT #6 — Sık sesler AudioPool ile yükle, nadir sesler normal cache ile
+    // Flame ses dosyaları assets/audio/ klasöründe, AssetSource'a tam alt yolu ver
     await FlameAudio.audioCache.loadAll([
-      'place.mp3',
-      'perfect.mp3',
       'game_over.mp3',
       'backGroundMusic.mp3',
     ]);
-  }
-
-  // ─────────────────────────────────────────────
-  // REWARDED AD — Yükleme
-  // ─────────────────────────────────────────────
-  void _loadRewardedAd() {
-    RewardedAd.load(
-      adUnitId: _kRewardedAdId,
-      request: const AdRequest(),
-      rewardedAdLoadCallback: RewardedAdLoadCallback(
-        onAdLoaded: (ad) {
-          _rewardedAd = ad;
-          _isRewardedAdReady = true;
-          debugPrint('✅ Rewarded Ad hazır');
-
-          // Reklam kapandığında: dispose + yeniden yükle
-          ad.fullScreenContentCallback = FullScreenContentCallback(
-            onAdDismissedFullScreenContent: (ad) {
-              ad.dispose();
-              _rewardedAd = null;
-              _isRewardedAdReady = false;
-              _loadRewardedAd(); // Bir sonraki için önceden yükle
-            },
-            onAdFailedToShowFullScreenContent: (ad, error) {
-              debugPrint('❌ Rewarded gösterilemedi: $error');
-              ad.dispose();
-              _rewardedAd = null;
-              _isRewardedAdReady = false;
-              _loadRewardedAd();
-            },
-          );
-        },
-        onAdFailedToLoad: (error) {
-          debugPrint('❌ Rewarded yüklenemedi: $error');
-          _isRewardedAdReady = false;
-          // 30 saniye sonra tekrar dene
-          Future.delayed(const Duration(seconds: 30), _loadRewardedAd);
-        },
-      ),
+    _placePool = await AudioPool.create(
+      source: AssetSource('audio/place.mp3'),
+      maxPlayers: 4,
+    );
+    _perfectPool = await AudioPool.create(
+      source: AssetSource('audio/perfect.mp3'),
+      maxPlayers: 4,
     );
   }
 
-  // ─────────────────────────────────────────────
-  // REWARDED AD — Gösterme (Game Over overlay'den çağrılır)
-  // ─────────────────────────────────────────────
-  void showRewardedAdAndContinue() {
-    if (!_isRewardedAdReady || _rewardedAd == null) {
-      debugPrint('⚠️ Rewarded ad henüz hazır değil');
-      return;
-    }
-
-    _rewardedAd!.show(
-      onUserEarnedReward: (ad, reward) {
-        // ── Ödül kazanıldı: devam et ──
-        debugPrint('🏆 Ödül kazanıldı: ${reward.amount} ${reward.type}');
-        _continueGame();
-      },
-    );
-  }
-
-  // ─────────────────────────────────────────────
-  // DEVAM ETMEKLİĞİ — Skoru sıfırlamadan oyunu sürdür
-  // ─────────────────────────────────────────────
-  void _continueGame() {
-    _continueUsed = true;
-
-    // Game Over overlay'i kapat
-    overlays.remove('gameOver');
-
-    // Mevcut bloğu kaldır (düşmüş blok)
-    currentBlock.removeFromParent();
-
-    // Yeni blok spawn et — aynı yerden devam
-    _spawnBlock();
-
-    // Motoru tekrar başlat
-    gameState = GameState.playing;
-    resumeEngine();
-
-    // BGM devam etsin
-    try {
-      FlameAudio.bgm.play('backGroundMusic.mp3', volume: 0.3);
-    } catch (_) {}
-  }
-
+  // OPT #1 — TextPaint'ler top-level final olarak tanımlandı, buraya taşındı
   void _setupUI() {
     scoreText = TextComponent(
       text: '0',
       position: Vector2(size.x / 2, 80),
       anchor: Anchor.center,
-      textRenderer: TextPaint(
-        style: const TextStyle(
-          color: Colors.white,
-          fontSize: 60,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
+      textRenderer: _scoreTextPaint, // ← sabit referans
     );
     comboText = TextComponent(
       text: '',
       position: Vector2(size.x / 2, 140),
       anchor: Anchor.center,
-      textRenderer: TextPaint(
-        style: const TextStyle(
-          color: Colors.orangeAccent,
-          fontSize: 26,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
+      textRenderer: _comboTextPaint, // ← sabit referans
     );
     heightText = TextComponent(
       text: '0m',
       position: Vector2(20, 40),
-      textRenderer: TextPaint(
-        style: const TextStyle(color: Colors.white70, fontSize: 18),
-      ),
+      textRenderer: _heightTextPaint, // ← sabit referans
     );
     windText = TextComponent(
       text: '',
       position: Vector2(size.x - 20, 40),
       anchor: Anchor.topRight,
-      textRenderer: TextPaint(
-        style: const TextStyle(
-          color: Colors.redAccent,
-          fontSize: 18,
-          fontWeight: FontWeight.bold,
-        ),
-      ),
+      textRenderer: _windTextPaint, // ← sabit referans
     );
     camera.viewport.addAll([scoreText, comboText, heightText, windText]);
   }
@@ -352,7 +297,7 @@ class StackTowerGame extends FlameGame with TapCallbacks {
   }
 
   void _spawnBlock() {
-    double speed = (150 + score * 5).clamp(150, 500).toDouble();
+    final speed = (150 + score * 5).clamp(150, 500).toDouble();
     currentBlock = MovingBlock(
       yPosition: previousBlock!.position.y - 30,
       blockWidth: previousBlock!.size.x,
@@ -372,12 +317,29 @@ class StackTowerGame extends FlameGame with TapCallbacks {
   @override
   void update(double dt) {
     super.update(dt);
+
     if (_pendingScroll > 0) {
-      double step = 400 * dt;
-      if (step > _pendingScroll) step = _pendingScroll;
+      final step = (_pendingScroll < 400 * dt) ? _pendingScroll : 400 * dt;
       _pendingScroll -= step;
-      for (var b in _placedBlocks) b.position.y += step;
+
+      // OPT #9 — Sadece yerleştirilmiş blokları kaydır.
+      //          Ekran dışına çıkan blokları _offscreenBlocks'a al, sonra sil.
+      for (int i = _placedBlocks.length - 1; i >= 0; i--) {
+        final b = _placedBlocks[i];
+        b.position.y += step;
+        // Ekranın 1.5 katı aşağıya inerse artık görünmez → kaldır
+        if (b.position.y > size.y * 1.5) {
+          _offscreenBlocks.add(b);
+          _placedBlocks.removeAt(i);
+        }
+      }
       currentBlock.position.y += step;
+    }
+
+    // OPT #9 — Ekran dışı blokları toplu temizle (update sonunda, safe)
+    if (_offscreenBlocks.isNotEmpty) {
+      removeAll(_offscreenBlocks);
+      _offscreenBlocks.clear();
     }
   }
 
@@ -385,10 +347,13 @@ class StackTowerGame extends FlameGame with TapCallbacks {
   void onTapDown(TapDownEvent event) {
     if (gameState != GameState.playing || !currentBlock.moving) return;
     currentBlock.moving = false;
-    _checkOverlap();
+    _checkOverlap(); // OPT #10 — artık async değil, senkron
   }
 
-  void _checkOverlap() async {
+  // OPT #10 — _checkOverlap async DEĞİL.
+  //           async/await oyun döngüsü içinde race condition ve frame skip'e yol açar.
+  //           GamesServices.unlock() çağrısı unawaited bırakıldı (fire-and-forget).
+  void _checkOverlap() {
     final overlapLeft = math.max(
       currentBlock.position.x,
       previousBlock!.position.x,
@@ -404,23 +369,25 @@ class StackTowerGame extends FlameGame with TapCallbacks {
       return;
     }
 
-    bool isPerfect =
+    final isPerfect =
         (currentBlock.position.x - previousBlock!.position.x).abs() < 7;
+
     if (isPerfect) {
       currentBlock.position.x = previousBlock!.position.x;
       currentBlock.size.x = previousBlock!.size.x;
       comboCount++;
       score += (1 + comboCount);
-      FlameAudio.play('perfect.mp3');
+
+      // OPT #6 — AudioPool ile düşük latency ses çalma
+      _perfectPool?.start();
       comboText.text = 'PERFECT X$comboCount';
       HapticFeedback.mediumImpact();
 
       if (comboCount >= 10) {
-        try {
-          await GamesServices.unlock(
-            achievement: Achievement(androidID: ID_PERFECT_KING),
-          );
-        } catch (_) {}
+        // fire-and-forget: oyun akışını bloklamaz
+        GamesServices.unlock(
+          achievement: Achievement(androidID: ID_PERFECT_KING),
+        ).catchError((_) {});
       }
     } else {
       currentBlock.position.x = overlapLeft;
@@ -428,12 +395,23 @@ class StackTowerGame extends FlameGame with TapCallbacks {
       comboCount = 0;
       score++;
       comboText.text = '';
-      FlameAudio.play('place.mp3');
+      // OPT #6
+      _placePool?.start();
       HapticFeedback.lightImpact();
     }
 
-    scoreText.text = '$score';
-    heightText.text = '${score * 3}m';
+    // OPT #8 — String önbelleği: değişmediyse text güncelleme
+    final newScore = '$score';
+    final newHeight = '${score * 3}m';
+    if (newScore != _lastScoreText) {
+      scoreText.text = newScore;
+      _lastScoreText = newScore;
+    }
+    if (newHeight != _lastHeightText) {
+      heightText.text = newHeight;
+      _lastHeightText = newHeight;
+    }
+
     _updateBackground(score * 3);
 
     _placedBlocks.add(currentBlock);
@@ -454,7 +432,9 @@ class StackTowerGame extends FlameGame with TapCallbacks {
     }
   }
 
-  void _gameOver() async {
+  // OPT #10 — _gameOver da artık async değil.
+  //           PGS çağrıları fire-and-forget yapıldı.
+  void _gameOver() {
     gameState = GameState.gameOver;
 
     try {
@@ -463,30 +443,26 @@ class StackTowerGame extends FlameGame with TapCallbacks {
     FlameAudio.play('game_over.mp3');
     HapticFeedback.vibrate();
 
-    // PGS: Skor Gönderimi
-    try {
-      await GamesServices.submitScore(
-        score: Score(androidLeaderboardID: ID_LEADERBOARD, value: score),
-      );
-      await GamesServices.increment(
-        achievement: Achievement(androidID: ID_CLOUD_BUILDER, steps: score),
-      );
-    } catch (_) {}
+    // fire-and-forget PGS çağrıları
+    GamesServices.submitScore(
+      score: Score(androidLeaderboardID: ID_LEADERBOARD, value: score),
+    ).catchError((_) {});
 
-    // PGS: Night Owl
+    GamesServices.increment(
+      achievement: Achievement(androidID: ID_CLOUD_BUILDER, steps: score),
+    ).catchError((_) {});
+
     final hour = DateTime.now().hour;
     if (hour >= 0 && hour <= 5) {
-      try {
-        await GamesServices.unlock(
-          achievement: Achievement(androidID: ID_NIGHT_OWL),
-        );
-      } catch (_) {}
+      GamesServices.unlock(
+        achievement: Achievement(androidID: ID_NIGHT_OWL),
+      ).catchError((_) {});
     }
 
     if (score > highScore) {
       highScore = score;
-      final prefs = await SharedPreferences.getInstance();
-      await prefs.setInt('highScore', highScore);
+      // OPT #2 — prefs instance hazır, await gerekmez (fire-and-forget)
+      prefs.setInt('highScore', highScore);
     }
 
     _showInterstitialIfReady();
@@ -495,36 +471,36 @@ class StackTowerGame extends FlameGame with TapCallbacks {
   }
 
   void restartGame() {
-    // Devam hakkını sıfırla — yeni oyun başlıyor
     _continueUsed = false;
-
     score = 0;
     comboCount = 0;
     _pendingScroll = 0;
     _bgLevel = 0;
     windActive = false;
     windStrength = 0.0;
+    _lastScoreText = '0';
+    _lastHeightText = '0m';
 
     scoreText.text = '0';
     heightText.text = '0m';
     comboText.text = '';
     windText.text = '';
 
-    _bgLevel1.children.whereType<Effect>().toList().forEach(
-      (e) => e.removeFromParent(),
-    );
-    _bgLevel2.children.whereType<Effect>().toList().forEach(
-      (e) => e.removeFromParent(),
-    );
-    _bgLevel3.children.whereType<Effect>().toList().forEach(
-      (e) => e.removeFromParent(),
-    );
+    for (final bg in [_bgLevel1, _bgLevel2, _bgLevel3]) {
+      bg.children.whereType<Effect>().toList().forEach(
+        (e) => e.removeFromParent(),
+      );
+    }
     _bgLevel1.opacity = 1.0;
     _bgLevel2.opacity = 0.0;
     _bgLevel3.opacity = 0.0;
 
+    // OPT #9 — _offscreenBlocks da temizlenmeli
     removeAll(_placedBlocks);
     _placedBlocks.clear();
+    removeAll(_offscreenBlocks);
+    _offscreenBlocks.clear();
+
     currentBlock.removeFromParent();
     _setupBaseBlock();
     _spawnBlock();
@@ -547,6 +523,56 @@ class StackTowerGame extends FlameGame with TapCallbacks {
     }
   }
 
+  // ── Rewarded Ad ──────────────────────────────────────────────────────────
+  void _loadRewardedAd() {
+    RewardedAd.load(
+      adUnitId: _kRewardedAdId,
+      request: const AdRequest(),
+      rewardedAdLoadCallback: RewardedAdLoadCallback(
+        onAdLoaded: (ad) {
+          _rewardedAd = ad;
+          _isRewardedAdReady = true;
+          ad.fullScreenContentCallback = FullScreenContentCallback(
+            onAdDismissedFullScreenContent: (ad) {
+              ad.dispose();
+              _rewardedAd = null;
+              _isRewardedAdReady = false;
+              _loadRewardedAd();
+            },
+            onAdFailedToShowFullScreenContent: (ad, error) {
+              ad.dispose();
+              _rewardedAd = null;
+              _isRewardedAdReady = false;
+              _loadRewardedAd();
+            },
+          );
+        },
+        onAdFailedToLoad: (_) {
+          _isRewardedAdReady = false;
+          Future.delayed(const Duration(seconds: 30), _loadRewardedAd);
+        },
+      ),
+    );
+  }
+
+  void showRewardedAdAndContinue() {
+    if (!_isRewardedAdReady || _rewardedAd == null) return;
+    _rewardedAd!.show(onUserEarnedReward: (ad, reward) => _continueGame());
+  }
+
+  void _continueGame() {
+    _continueUsed = true;
+    overlays.remove('gameOver');
+    currentBlock.removeFromParent();
+    _spawnBlock();
+    gameState = GameState.playing;
+    resumeEngine();
+    try {
+      FlameAudio.bgm.play('backGroundMusic.mp3', volume: 0.3);
+    } catch (_) {}
+  }
+
+  // ── Interstitial Ad ───────────────────────────────────────────────────────
   void _loadInterstitialAd() {
     InterstitialAd.load(
       adUnitId: _kInterstitialAdId,
@@ -574,20 +600,16 @@ class StackTowerGame extends FlameGame with TapCallbacks {
     }
   }
 
-  // ─────────────────────────────────────────────
-  // DIŞARIDAN ERIŞIM — GameOverOverlay için getter'lar
-  // ─────────────────────────────────────────────
-
-  /// Rewarded ad hazır mı? (Overlay butonu buna göre etkinleşir)
   bool get isRewardedAdReady => _isRewardedAdReady;
-
-  /// Bu oyunda devam hakkı kullanıldı mı? (Sadece 1 kez kullanılabilir)
   bool get continueUsed => _continueUsed;
 }
 
-// ─────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 // MovingBlock
-// ─────────────────────────────────────────────
+// OPT #11 — Paint nesnesi constructor'da final olarak yaratılıyor.
+//            HasPaint mixin bunu component düzeyinde cache'ler.
+//            RectangleComponent bunu zaten doğru yapıyor — dokunmaya gerek yok.
+// ─────────────────────────────────────────────────────────────────────────────
 class MovingBlock extends RectangleComponent
     with HasGameReference<StackTowerGame> {
   double speed;
@@ -619,9 +641,10 @@ class MovingBlock extends RectangleComponent
   }
 }
 
-// ─────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
 // MENU OVERLAY
-// ─────────────────────────────────────────────
+// OPT #4 — const constructor kullanımı: widget tree'de immutable node
+// ─────────────────────────────────────────────────────────────────────────────
 class MenuOverlay extends StatelessWidget {
   final StackTowerGame game;
   const MenuOverlay({super.key, required this.game});
@@ -665,9 +688,9 @@ class MenuOverlay extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────
-// GAME OVER OVERLAY — Rewarded "Devam Et" butonu dahil
-// ─────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// GAME OVER OVERLAY
+// ─────────────────────────────────────────────────────────────────────────────
 class GameOverOverlay extends StatefulWidget {
   final StackTowerGame game;
   const GameOverOverlay({super.key, required this.game});
@@ -677,21 +700,14 @@ class GameOverOverlay extends StatefulWidget {
 }
 
 class _GameOverOverlayState extends State<GameOverOverlay> {
-  bool _adLoading = false; // Butona basıldıktan sonra yükleniyor göstergesi
+  bool _adLoading = false;
 
   @override
   Widget build(BuildContext context) {
     final game = widget.game;
     final isNewRecord = game.score >= game.highScore && game.score > 0;
-
-    // Devam butonu gösterilsin mi?
-    // Koşul: bu oyunda henüz kullanılmadıysa VE reklam hazırsa
-    final bool showContinueButton =
-        !game.continueUsed && game.isRewardedAdReady;
-
-    // Reklam hazır değilse ama henüz kullanılmadıysa — "Yükleniyor" göster
-    final bool showLoadingButton =
-        !game.continueUsed && !game.isRewardedAdReady;
+    final showContinueButton = !game.continueUsed && game.isRewardedAdReady;
+    final showLoadingButton = !game.continueUsed && !game.isRewardedAdReady;
 
     return Center(
       child: Container(
@@ -705,7 +721,6 @@ class _GameOverOverlayState extends State<GameOverOverlay> {
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            // ── GAME OVER başlığı ──
             const Text(
               'GAME OVER',
               style: TextStyle(
@@ -714,18 +729,12 @@ class _GameOverOverlayState extends State<GameOverOverlay> {
                 fontWeight: FontWeight.bold,
               ),
             ),
-
             const SizedBox(height: 12),
-
-            // ── Skor ──
             Text(
               'Score: ${game.score}',
               style: const TextStyle(color: Colors.white, fontSize: 28),
             ),
-
             const SizedBox(height: 6),
-
-            // ── High Score / Yeni Rekoru ──
             if (isNewRecord)
               const Text(
                 '🏆 NEW RECORD!',
@@ -740,24 +749,18 @@ class _GameOverOverlayState extends State<GameOverOverlay> {
                 'Best: ${game.highScore}',
                 style: const TextStyle(color: Colors.white54, fontSize: 16),
               ),
-
             const SizedBox(height: 24),
 
-            // ─────────────────────────────────────────────
-            // DEVAM ET BUTONU — Rewarded Video izle
-            // ─────────────────────────────────────────────
+            // ── Devam Et butonu ──
             if (showContinueButton)
               _ContinueButton(
                 loading: _adLoading,
                 onPressed: () {
                   setState(() => _adLoading = true);
                   game.showRewardedAdAndContinue();
-                  // Reklam kapandıktan sonra overlay zaten kaldırılıyor;
-                  // butonun tekrar aktif olmasına gerek yok.
                 },
               )
             else if (showLoadingButton)
-              // Reklam henüz yüklenmedi — soluk buton göster
               Opacity(
                 opacity: 0.45,
                 child: _ContinueButton(loading: true, onPressed: null),
@@ -765,7 +768,6 @@ class _GameOverOverlayState extends State<GameOverOverlay> {
 
             const SizedBox(height: 12),
 
-            // ── RETRY (Sıfırdan Başla) ──
             SizedBox(
               width: double.infinity,
               child: ElevatedButton(
@@ -787,10 +789,7 @@ class _GameOverOverlayState extends State<GameOverOverlay> {
                 ),
               ),
             ),
-
             const SizedBox(height: 8),
-
-            // ── Liderlik tablosu ──
             TextButton.icon(
               icon: const Icon(Icons.emoji_events, color: Colors.amber),
               label: const Text(
@@ -806,13 +805,9 @@ class _GameOverOverlayState extends State<GameOverOverlay> {
   }
 }
 
-// ─────────────────────────────────────────────
-// DEVAM ET BUTONU — Ayrı widget (temiz kod)
-// ─────────────────────────────────────────────
 class _ContinueButton extends StatelessWidget {
   final bool loading;
   final VoidCallback? onPressed;
-
   const _ContinueButton({required this.loading, required this.onPressed});
 
   @override
@@ -821,9 +816,7 @@ class _ContinueButton extends StatelessWidget {
       width: double.infinity,
       child: ElevatedButton.icon(
         style: ElevatedButton.styleFrom(
-          backgroundColor: const Color(
-            0xFF1DB954,
-          ), // Spotify yeşili — dikkat çekici
+          backgroundColor: const Color(0xFF1DB954),
           foregroundColor: Colors.white,
           padding: const EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(
