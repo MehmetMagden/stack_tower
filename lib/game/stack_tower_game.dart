@@ -4,7 +4,7 @@ import 'package:flame/effects.dart';
 import 'package:flame/events.dart';
 import 'package:flame/game.dart';
 import 'package:flame_audio/flame_audio.dart';
-import 'package:audioplayers/audioplayers.dart'; // AudioPool için eklendi
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_mobile_ads/google_mobile_ads.dart';
@@ -33,7 +33,6 @@ class StackTowerGame extends FlameGame with TapCallbacks {
   RewardedAd? rewardedAd;
   InterstitialAd? _interstitialAd;
 
-  // Ses Havuzları (Low-Latency Audio)
   AudioPool? _placePool;
   AudioPool? _perfectPool;
 
@@ -71,11 +70,9 @@ class StackTowerGame extends FlameGame with TapCallbacks {
     _setupUI();
     _loadAdsDelayed();
     
-    // Sesleri hazırlıyoruz
     await FlameAudio.bgm.initialize();
-    await FlameAudio.audioCache.loadAll(['bgm_1.mp3', 'game_over.mp3']);
+    await FlameAudio.audioCache.loadAll(['bgm_1.mp3', 'bgm_2.mp3', 'game_over.mp3']);
     
-    // AudioPool: 4 oyuncu kapasiteli havuzlar oluşturuyoruz (Hızlı vuruşlar için)
     _placePool = await AudioPool.create(source: AssetSource('audio/place.mp3'), maxPlayers: 4);
     _perfectPool = await AudioPool.create(source: AssetSource('audio/perfect.mp3'), maxPlayers: 4);
     
@@ -83,7 +80,13 @@ class StackTowerGame extends FlameGame with TapCallbacks {
     overlays.add('mainMenu');
   }
 
-  // Bellek yönetimi için havuzları temizle
+  void _playRandomBgm() {
+    if (!isMusicOn) return;
+    final tracks = ['bgm_1.mp3', 'bgm_2.mp3'];
+    final selectedTrack = tracks[_random.nextInt(tracks.length)];
+    FlameAudio.bgm.play(selectedTrack, volume: 0.3);
+  }
+
   @override
   void onRemove() {
     _placePool?.dispose();
@@ -175,14 +178,12 @@ class StackTowerGame extends FlameGame with TapCallbacks {
         comboText.text = 'PERFECT X$comboCount';
         currentBlock!.size.x = pW; currentBlock!.position.x = pX;
         
-        // AudioPool ile anında ses çalımı
         if (isSoundOn) _perfectPool?.start();
         HapticFeedback.mediumImpact();
       } else {
         currentBlock!.size.x = overlapWidth; currentBlock!.position.x = overlapLeft;
         comboCount = 0; score++; comboText.text = '';
         
-        // AudioPool ile anında ses çalımı
         if (isSoundOn) _placePool?.start();
         HapticFeedback.lightImpact();
       }
@@ -231,14 +232,22 @@ class StackTowerGame extends FlameGame with TapCallbacks {
     double currentSpeed = (GameConfig.initialSpeed + score * GameConfig.speedIncrement)
         .clamp(GameConfig.initialSpeed, GameConfig.maxSpeed);
 
+    bool startsFromLeft = _random.nextBool();
+    double startX = startsFromLeft ? 0 : size.x - previousBlock!.size.x;
+
     currentBlock = MovingBlock(
       sprite: blockSprites[_random.nextInt(blockSprites.length)], 
       y: previousBlock!.position.y - 30, 
       w: previousBlock!.size.x, 
       h: GameConfig.blockHeight, 
-      x: 0, 
+      x: startX, 
       speed: currentSpeed
     );
+    
+    if (!startsFromLeft) {
+      currentBlock!.speed *= -1;
+    }
+    
     world.add(currentBlock!);
     
     if (score > 25) {
@@ -283,7 +292,7 @@ class StackTowerGame extends FlameGame with TapCallbacks {
     
     _spawnBaseBlock(); 
     _spawnNextBlock();
-    if (isMusicOn) FlameAudio.bgm.play('bgm_1.mp3', volume: 0.3);
+    _playRandomBgm();
   }
 
   void continueGame() {
@@ -291,6 +300,6 @@ class StackTowerGame extends FlameGame with TapCallbacks {
     overlays.remove('gameOver');
     if (currentBlock != null) currentBlock!.removeFromParent();
     resumeEngine(); _spawnNextBlock();
-    if (isMusicOn) FlameAudio.bgm.play('bgm_1.mp3', volume: 0.3);
+    _playRandomBgm();
   }
 }
